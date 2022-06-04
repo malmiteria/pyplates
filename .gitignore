@@ -1,0 +1,4 @@
+
+local.virtualenv/*
+**/__pycache__/**
+.coverage
