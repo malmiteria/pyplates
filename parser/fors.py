@@ -1,4 +1,4 @@
-from parser.statements import CodeBlock, Statement
+from parser.code_block import CodeBlock, Statement
 import re
 
 FOR = """

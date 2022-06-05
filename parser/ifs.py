@@ -1,4 +1,4 @@
-from parser.statements import CodeBlock, Statement, Clause
+from parser.code_block import CodeBlock, Statement, Clause
 import re
 
 ELIF = """elif {elifexpression}:
