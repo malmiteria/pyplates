@@ -76,3 +76,12 @@ class CodeBlock:
         for clause in self.clause_list:
             res += clause.python_str(match)
         return res
+
+    def replacement(self, match):
+        exec(self.python_str(match), globals())
+        return res
+
+    def all_replacement(self, text):
+        for match in re.finditer(self.pattern(), text):
+            start, stop = match.span()
+            yield text[start:stop], self.replacement(match)
