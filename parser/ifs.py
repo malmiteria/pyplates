@@ -37,7 +37,19 @@ def parse_ifs(file_content):
     if_block = if_statement.pattern()
 
     elif_pattern = if_statement.statement("elif")
+    for block, parsed in list(elifs_replacments(elif_pattern, if_block, file_content)):
+        file_content = file_content.replace(block, parsed)
+
+    return file_content
+
+def get_elifs_content(elif_pattern, elif_els):
+    for res_elif in re.finditer(elif_pattern, elif_els):
+        yield res_elif.group("elifexpression"), res_elif.group("elifblock")
+
+def elifs_replacments(elif_pattern, if_block, file_content):
     for res in re.finditer(if_block, file_content):
+        start, stop = res.span()
+        substring = file_content[start:stop]
         elif_els = res.group("elifs")
         elifs_expr, elifs_block = "", ""
         if elif_els:
@@ -50,9 +62,4 @@ def parse_ifs(file_content):
             elifs_block=elifs_block,
             else_block=res.group("elseblock") or "",
         )
-        file_content = re.sub(if_block, if_parsed, file_content)
-    return file_content
-
-def get_elifs_content(elif_pattern, elif_els):
-    for res_elif in re.finditer(elif_pattern, elif_els):
-        yield res_elif.group("elifexpression"), res_elif.group("elifblock")
+        yield substring, if_parsed
