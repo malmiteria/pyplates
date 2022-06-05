@@ -1,6 +1,7 @@
 from parser import render
 
 
+#### Test simple
 def test_if():
     file_content = """{% if True %}WEEE{% endif %}"""
 
@@ -36,6 +37,12 @@ def test_if_2_elifs_else_TTT():
 
     assert render(file_content) == "c1"
 
+def test_for():
+    file_content = """{% for _ in range(5) %}O{% endfor %}"""
+
+    assert render(file_content) == "OOOOO"
+
+### test two patterns
 def test_two_ifs_TT():
     file_content = """{% if True %}c1{% endif %}{% if True %}c2{% endif %}"""
 
@@ -56,18 +63,22 @@ def test_two_ifs_FF():
 
     assert render(file_content) == ""
 
-
-def test_for():
-    file_content = """{% for _ in range(5) %}O{% endfor %}"""
-
-    assert render(file_content) == "OOOOO"
-
 def test_two_for():
     file_content = """{% for _ in range(5) %}O{% endfor %}{% for _ in range(5) %}A{% endfor %}"""
 
     assert render(file_content) == "OOOOOAAAAA"
 
+def test_if_for():
+    file_content = """{% if True %}O{% endif %}{% for _ in range(5) %}A{% endfor %}"""
 
+    assert render(file_content) == "OAAAAA"
+
+def test_for_if():
+    file_content = """{% for _ in range(5) %}A{% endfor %}{% if True %}O{% endif %}"""
+
+    assert render(file_content) == "AAAAAO"
+
+##### test nested
 def test_for_in_if_true():
     file_content = """{% if True %}{% for _ in range(5) %}O{% endfor %}{% endif %}"""
 
