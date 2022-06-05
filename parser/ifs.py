@@ -1,3 +1,4 @@
+from parser.statements import Statement
 import re
 
 ELIF = """elif {elifexpression}:
@@ -24,30 +25,18 @@ def make_python_if(if_expr, if_block, elifs_expr="", elifs_block="", else_block=
     exec(python_if, globals())
     return res
 
-def statement(statement, expressionless=False):
-    if expressionless:
-        expression = ""
-    else:
-        expression =  "(?P<" + statement + "expression>[^(\%\})]*)"
-    return "\{\% " + statement + expression + " \%\}(?P<" + statement + "block>[^(\{\%)]*)"
-
-def repeatable_clause(clause):
-    clause_pattern = statement(clause)
-    return f"(?P<{clause}s>({clause_pattern})*)"
-
-def end_statement(statement):
-    return "\{\% end" + statement + " \%\}"
-
 
 def parse_ifs(file_content):
-    if_pattern = statement("if")
-    elifs_pattern = repeatable_clause("elif")
-    else_pattern = statement("else", expressionless=True)
-    else_opt_pattern = f"({else_pattern})?"
-    endif_pattern = end_statement("if")
-    if_block = if_pattern + elifs_pattern + else_opt_pattern + endif_pattern
+    if_statement = Statement(
+        "if",
+        clauses=["elif", "else"],
+        repeatable_clauses=["elif"],
+        expressionless_clauses=["else"],
+        optional_clauses=["elif", "else"],
+    )
+    if_block = if_statement.pattern()
 
-    elif_pattern = statement("elif")
+    elif_pattern = if_statement.statement("elif")
     for res in re.finditer(if_block, file_content):
         elif_els = res.group("elifs")
         elifs_expr, elifs_block = "", ""
