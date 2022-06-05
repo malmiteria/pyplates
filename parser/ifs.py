@@ -48,7 +48,7 @@ def parse_ifs(file_content):
             res.group("ifblock"),
             elifs_expr=elifs_expr,
             elifs_block=elifs_block,
-            else_block=res.group("elseblock"),
+            else_block=res.group("elseblock") or "",
         )
         file_content = re.sub(if_block, if_parsed, file_content)
     return file_content

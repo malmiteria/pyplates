@@ -41,3 +41,14 @@ def test_for():
     file_content = """{% for _ in range(5) %}O{% endfor %}"""
 
     assert render(file_content) == "OOOOO"
+
+
+def test_for_in_if_true():
+    file_content = """{% if True %}{% for _ in range(5) %}O{% endfor %}{% endif %}"""
+
+    assert render(file_content) == "OOOOO"
+
+def test_for_in_if_false():
+    file_content = """{% if False %}{% for _ in range(5) %}O{% endfor %}{% endif %}"""
+
+    assert render(file_content) == ""
