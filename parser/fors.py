@@ -15,8 +15,6 @@ def parse_fors(file_content):
         "for",
     )
     for_block = for_statement.pattern()
-    print(for_block)
-    print(file_content)
     for res in re.finditer(for_block, file_content):
         for_parsed = make_python_for(
             res.group("forexpression"),
