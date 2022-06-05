@@ -1,4 +1,4 @@
-from parser.statements import Statement
+from parser.statements import CodeBlock, Statement
 import re
 
 FOR = """
@@ -11,8 +11,10 @@ def make_python_for(expression, block):
     return res
 
 def parse_fors(file_content):
-    for_statement = Statement(
-        "for",
+    for_statement = CodeBlock(
+        Statement(
+            "for",
+        )
     )
     for_block = for_statement.pattern()
     for block, parsed in list(for_replacments(for_block, file_content)):

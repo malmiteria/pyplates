@@ -1,55 +1,52 @@
-
-
 class Statement:
-    def __init__(self, statement_str, expressionless=False, clauses=None, expressionless_clauses=None, repeatable_clauses=None, optional_clauses=None):
-        self.statement_str = statement_str
+    def __init__(self, name, expressionless=False):
+        self.name = name
         self.expressionless = expressionless
-        if clauses is None:
-            self.clauses = []
-        else:
-            self.clauses = clauses
-        if repeatable_clauses is None:
-            self.repeatable_clauses = []
-        else:
-            self.repeatable_clauses = repeatable_clauses
-        if expressionless_clauses is None:
-            self.expressionless_clauses = []
-        else:
-            self.expressionless_clauses = expressionless_clauses
-        if optional_clauses is None:
-            self.optional_clauses = []
-        else:
-            self.optional_clauses = optional_clauses
 
     def pattern(self):
-        statement_pattern = self.statement(self.statement_str, expressionless=self.expressionless)
-        clause_pattern = "".join(self.clause(clause) for clause in self.clauses)
-        endstatement_pattern = self.end_statement(self.statement_str)
-        return statement_pattern + clause_pattern + endstatement_pattern
-
-    def statement(self, statement, expressionless=False):
-        if expressionless:
+        if self.expressionless:
             expression = ""
         else:
-            expression =  "(?P<" + statement + "expression>[^\%\}]*)"
-        return "\{\% " + statement + expression + " \%\}(?P<" + statement + "block>[^\{\%]*)"
+            expression =  "(?P<" + self.name + "expression>[^\%\}]*)"
+        return "\{\% " + self.name + expression + " \%\}(?P<" + self.name + "block>[^\{\%]*)"
 
-    def clause(self, clause):
-        if clause in self.repeatable_clauses:
-            if clause in self.optional_clauses:
+    def end_pattern(self):
+        return "\{\% end" + self.name + " \%\}"
+
+class Clause(Statement):
+    def __init__(self, name, expressionless=False, repeatable=False, optional=False):
+        self.name = name
+        self.expressionless = expressionless
+        self.repeatable = repeatable
+        self.optional = optional
+
+    def grouped_pattern(self):
+        if self.repeatable:
+            if self.optional:
                 repeater = "*"
             else:
                 repeater = "+"
         else:
-            if clause in self.optional_clauses:
+            if self.optional:
                 repeater = "?"
             else:
                 repeater = ""
-        clause_pattern = self.statement(clause, expressionless=clause in self.expressionless_clauses)
-        clause_group_name = f"{clause}"
-        if clause in self.repeatable_clauses:
+        clause_pattern = super().pattern()
+        clause_group_name = f"{self.name}"
+        if self.repeatable:
             clause_group_name = f"{clause_group_name}s"
         return f"(?P<{clause_group_name}>({clause_pattern}){repeater})"
 
-    def end_statement(self, statement):
-        return "\{\% end" + statement + " \%\}"
+class CodeBlock:
+    def __init__(self, statement, clause_list=None):
+        self.statement = statement
+        if clause_list is None:
+            self.clause_list = []
+        else:
+            self.clause_list = clause_list
+
+    def pattern(self):
+        statement_pattern = self.statement.pattern()
+        clause_pattern = "".join(clause.grouped_pattern() for clause in self.clause_list)
+        endstatement_pattern = self.statement.end_pattern()
+        return statement_pattern + clause_pattern + endstatement_pattern

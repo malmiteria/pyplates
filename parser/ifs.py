@@ -1,4 +1,4 @@
-from parser.statements import Statement
+from parser.statements import CodeBlock, Statement, Clause
 import re
 
 ELIF = """elif {elifexpression}:
@@ -14,17 +14,16 @@ if {ifexpression}:
 """
 
 def parse_ifs(file_content):
-    if_statement = Statement(
-        "if",
-        clauses=["elif", "else"],
-        repeatable_clauses=["elif"],
-        expressionless_clauses=["else"],
-        optional_clauses=["elif", "else"],
+    if_statement = CodeBlock(
+        Statement("if"),
+        clause_list=[
+            Clause("elif", repeatable=True, optional=True),
+            Clause("else", expressionless=True, optional=True),
+        ]
     )
-
     if_block = if_statement.pattern()
 
-    elif_pattern = if_statement.statement("elif")
+    elif_pattern = if_statement.clause_list[0].pattern()
     for block, parsed in list(elifs_replacments(elif_pattern, if_block, file_content)):
         file_content = file_content.replace(block, parsed)
 
