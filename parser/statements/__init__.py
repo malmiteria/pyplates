@@ -31,8 +31,8 @@ class Statement:
         if expressionless:
             expression = ""
         else:
-            expression =  "(?P<" + statement + "expression>[^(\%\})]*)"
-        return "\{\% " + statement + expression + " \%\}(?P<" + statement + "block>[^(\{\%)]*)"
+            expression =  "(?P<" + statement + "expression>[^\%\}]*)"
+        return "\{\% " + statement + expression + " \%\}(?P<" + statement + "block>[^\{\%]*)"
 
     def clause(self, clause):
         if clause in self.repeatable_clauses:
@@ -46,15 +46,10 @@ class Statement:
             else:
                 repeater = ""
         clause_pattern = self.statement(clause, expressionless=clause in self.expressionless_clauses)
-        return f"(?P<{clause}s>({clause_pattern}){repeater})"
-
-    def repeatable_clause(self, clause):
-        clause_pattern = self.statement(clause)
-        return f"(?P<{clause}s>({clause_pattern})*)"
-
-    def optional_clause(self, clause):
-        clause_pattern = self.statement(clause, expressionless=True)
-        return f"({clause_pattern})?"
+        clause_group_name = f"{clause}"
+        if clause in self.repeatable_clauses:
+            clause_group_name = f"{clause_group_name}s"
+        return f"(?P<{clause_group_name}>({clause_pattern}){repeater})"
 
     def end_statement(self, statement):
         return "\{\% end" + statement + " \%\}"
