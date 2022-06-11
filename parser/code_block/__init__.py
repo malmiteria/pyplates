@@ -23,6 +23,15 @@ class Statement:
     def end_pattern(self):
         return "\{\% end" + self.name + " \%\}"
 
+    def python_statement(self, statement_text):
+        return statement_text[3:-3] + ":"
+
+    def python_block(self, block_text):
+        return f"    res += \"{block_text}\""
+
+    def python_parsed(self, statement_text, block_text):
+        return self.python_statement(statement_text) + "\n" + self.python_block(block_text)
+
     def python_str(self, match):
         return self.python_formatted_string.format(**match.groupdict())
 
@@ -78,42 +87,46 @@ class CodeBlock:
         return statement_pattern + clause_pattern + endstatement_pattern
     
     def pattern_by_start_index(self, file_content, pattern):
-        return [match for match in re.finditer(pattern, file_content)]
+        return list(re.finditer(pattern, file_content))
 
     def sorted_pattern(self, file_content, pattern):
         return sorted(self.pattern_by_start_index(file_content, pattern), key=lambda x: x.start())
-    
-    def list_all_statements(self, file_content):
-        st = {}
-        st[self.statement] = self.sorted_pattern(file_content, self.statement.statement_pattern())
+
+    def list_all_matches(self, file_content):
+        statement_by_start_index = []
+        for occ in self.pattern_by_start_index(file_content, self.statement.statement_pattern()):
+            statement_by_start_index.append((self.statement, occ))
         for clause in self.clause_list:
-            st[clause] = self.sorted_pattern(file_content, clause.statement_pattern())
-        st["END"] = self.sorted_pattern(file_content, self.statement.end_pattern())
-
-
-        while st[self.statement]:
-            try:
-                first_end = st["END"][0]
-                first_start = st[self.statement][0]
-            except IndexError:
-                return st
-            for start_match in st[self.statement]:
-                if start_match.start() < first_end.start():
-                    first_start = start_match
-                else:
-                    break
-            match_block = {}
-            match_block[self.statement] = first_start.span()
-            st[self.statement].remove(first_start)
-            for clause, occurences in st.items():
-                for match in list(occurences):
-                    if first_start.start() < match.start() < first_end.start():
-                        match_block[clause] = match.span()
-                        occurences.remove(match)
-            match_block["END"] = first_end.span()
-            st["END"].remove(first_end)
-            yield match_block
+            for occ in self.pattern_by_start_index(file_content, clause.statement_pattern()):
+                statement_by_start_index.append((clause, occ))
+        for occ in self.pattern_by_start_index(file_content, self.statement.end_pattern()):
+            statement_by_start_index.append(("END", occ))
         
+        statement_by_start_index = sorted(statement_by_start_index, key=lambda x: x[1].start())
+        open_counter = None
+        block = []
+        for statement, match in statement_by_start_index:
+            if open_counter is None: # outside any blocks
+                if statement is not self.statement:
+                    continue
+                block.append((statement, match))
+                open_counter = 0 # if facing open statement, we enter block
+                continue
+            if open_counter == 0: # inside open block, but not inside any nested block
+                if statement == "END":
+                    block.append((statement, match))
+                    yield block
+                    block = []
+                    open_counter = None
+                    continue
+                if statement is not self.statement:
+                    block.append((statement, match))
+                    continue
+            # no matter if nested or not, but we are in open block
+            if statement is self.statement:
+                open_counter += 1
+            if statement == "END":
+                open_counter -= 1
 
     def python_str(self, match):
         res = self.statement.python_str(match)
@@ -126,9 +139,6 @@ class CodeBlock:
         return res
 
     def all_replacement(self, text):
-        for st in self.list_all_statements(text):
-            print(st)
-            print(st[self.statement][0], st["END"][-1])
         for match in re.finditer(self.pattern(), text):
             start, stop = match.span()
             yield text[start:stop], self.replacement(match)
