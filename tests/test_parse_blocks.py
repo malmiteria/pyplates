@@ -90,7 +90,7 @@ def test_for_if():
 
 ##### test nested
 def test_nested_for():
-    file_content = """{% for _ in range(3) %}{% for _ in range(5) %}O{% endfor %}{% endif %}"""
+    file_content = """{% for _ in range(3) %}{% for _ in range(5) %}O{% endfor %}{% endfor %}"""
 
     assert render(file_content) == "OOOOOOOOOOOOOOO"
 
