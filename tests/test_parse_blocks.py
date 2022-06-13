@@ -1,6 +1,13 @@
 from parser import render
 
 
+
+def test_no_blocks():
+    file_content = """why would you use this module on this file?"""
+
+    assert render(file_content) == "why would you use this module on this file?"
+
+
 #### Test simple
 def test_if():
     file_content = """{% if True %}WEEE{% endif %}"""

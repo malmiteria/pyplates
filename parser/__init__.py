@@ -1,28 +1,36 @@
 import re
-from parser.ifs import if_block
-from parser.fors import for_block
 
-code_blocks = {
-    "if": ["elif", "else"],
-    "for": ["else"],
-    "try": ["except", "else", "finally"],
-}
+class Parser:
+    def __init__(self):
+        self.code_blocks = {
+            "if": ["elif", "else"],
+            "for": ["else"],
+            "try": ["except", "else", "finally"],
+        }
+        self.openners = "|".join(self.code_blocks.keys())
+        self.closers = "|".join(["end" + key for key in self.code_blocks.keys()])
+        self.clauses = "|".join(["|".join(value) for value in self.code_blocks.values()])
 
-openners = "|".join(code_blocks.keys())
-closers = "|".join(["end" + key for key in code_blocks.keys()])
-clauses = "|".join(["|".join(value) for value in code_blocks.values()])
-all_statement = "|".join([openners, clauses, closers])
+    def openners_matches(self, file_content):
+        return re.finditer(self.pattern(self.openners), file_content)
 
-def pattern(els):
-    return "\{\% (" + els + ")[^\%\}]* \%\}"
+    def closers_matches(self, file_content):
+        return re.finditer(self.pattern(self.closers), file_content)
+
+    def clauses_matches(self, file_content):
+        return re.finditer(self.pattern(self.clauses), file_content)
+
+    def pattern(self, els):
+        return "\{\% (" + els + ")[^\%\}]* \%\}"
 
 def RUN(file_content):
+    parser = Parser()
     statement_by_start_index = []
-    for occ in re.finditer(pattern(openners), file_content):
+    for occ in parser.openners_matches(file_content):
         statement_by_start_index.append(("OPEN", occ))
-    for occ in re.finditer(pattern(clauses), file_content):
+    for occ in parser.clauses_matches(file_content):
         statement_by_start_index.append(("CLAUSES", occ))
-    for occ in re.finditer(pattern(closers), file_content):
+    for occ in parser.closers_matches(file_content):
         statement_by_start_index.append(("END", occ))
     statement_by_start_index = sorted(statement_by_start_index, key=lambda x: x[1].start())
 
@@ -52,16 +60,6 @@ def RUN(file_content):
             open_counter -= 1
 
 
-# yield before any openners
-# yield the openner
-# yield from the openner block
-##### repeat for all clauses
-# yield the clause
-# yield from the clause block
-##### stop repeat for all clauses
-# ignore end
-# yield until next block
-
 def indent(block):
     __, stop = next(block)
     for iter_start, iter_stop in block:
@@ -69,23 +67,24 @@ def indent(block):
        stop = iter_stop
 
 
-def make_python_code(file_content, tab_level=0):
+def python_yields(file_content, tab_level=0):
     start = 0
     for block in RUN(file_content):
         if file_content[start:block[0][0]]:
-            yield "    " * tab_level + file_content[start:block[0][0]]
+            yield "    " * tab_level + f"yield \"{file_content[start:block[0][0]]}\"" + "\n"
         for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, indent(iter(block))):
             yield "    " * tab_level + file_content[block_start + 3:block_stop - 3] + ":\n"
-            yield from make_python_code(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
+            yield from python_yields(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
         start = block[-1][-1]
+    if file_content == "":
+        yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
     if file_content[start:]:
-        yield "    " * tab_level + file_content[start:]
+        yield "    " * tab_level + f"yield \"{file_content[start:]}\"" + "\n"
+
+def python_code(file_content):
+    return "def easter_egg():\n" + "".join(python_yields(file_content, tab_level=1)) + "\nres = \"\".join(easter_egg())"
 
 def render(file_content, *args, **kwargs):
-    print("".join(make_python_code(file_content)))
-                
-    for block, parsed in list(for_block.all_replacement(file_content)):
-        file_content = file_content.replace(block, parsed)
-    for block, parsed in list(if_block.all_replacement(file_content)):
-        file_content = file_content.replace(block, parsed)
-    return file_content
+    snek = python_code(file_content)
+    exec(snek, globals())
+    return res
