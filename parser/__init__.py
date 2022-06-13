@@ -25,13 +25,12 @@ class Parser:
         return "\{\% (" + els + ")[^\%\}]* \%\}"
 
     def root_blocks(self, file_content):
-        parser = Parser()
         statement_by_start_index = []
-        for occ in parser.openners_matches(file_content):
+        for occ in self.openners_matches(file_content):
             statement_by_start_index.append(("OPEN", occ))
-        for occ in parser.clauses_matches(file_content):
+        for occ in self.clauses_matches(file_content):
             statement_by_start_index.append(("CLAUSES", occ))
-        for occ in parser.closers_matches(file_content):
+        for occ in self.closers_matches(file_content):
             statement_by_start_index.append(("END", occ))
         statement_by_start_index = sorted(statement_by_start_index, key=lambda x: x[1].start())
 
