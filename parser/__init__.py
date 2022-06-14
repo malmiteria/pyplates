@@ -65,19 +65,33 @@ class Parser:
            yield stop, iter_start
            stop = iter_stop
 
+    def python_out_of_blocks(self, file_content, tab_level):
+        file_content = file_content.replace("\\", "\\\\")
+        file_content = file_content.replace("\n", "\\n")
+        file_content = file_content.replace('"', '\\"')
+        file_content = file_content.replace("'", "\\'")
+        return "    " * tab_level + f"yield \"{file_content}\""
+
+    def raw_python(self, file_content, tab_level):
+        return "    " * tab_level + file_content
+
     def python_yields(self, file_content, tab_level=0):
         start = 0
         for block in self.root_blocks(file_content):
+            # yields before each blocks
             if file_content[start:block[0][0]]:
-                yield "    " * tab_level + f"yield \"{file_content[start:block[0][0]]}\"" + "\n"
+                yield self.python_out_of_blocks(file_content[start:block[0][0]], tab_level) + "\n"
+            # yields blocks
             for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, self.indent(iter(block))):
-                yield "    " * tab_level + file_content[block_start + 3:block_stop - 3] + ":\n"
+                yield self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ":\n"
                 yield from self.python_yields(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
             start = block[-1][-1]
+        # yields after last block (or everything, if there was no blocks), if empty
         if file_content == "":
             yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
+        # yields after last block, if non empty
         if file_content[start:]:
-            yield "    " * tab_level + f"yield \"{file_content[start:]}\"" + "\n"
+            yield self.python_out_of_blocks(file_content[start:], tab_level) + "\n"
 
     def python_code(self, file_content):
         return "def easter_egg():\n" + "".join(self.python_yields(file_content, tab_level=1)) + "\nres = \"\".join(easter_egg())"

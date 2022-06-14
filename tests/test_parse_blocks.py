@@ -8,6 +8,14 @@ def test_no_blocks():
     assert render(file_content) == "why would you use this module on this file?"
 
 
+def test_special_characters():
+    # this file contains special characters for python (including newline, which apparently happens at the end of the last line)
+    with open("tests/files/special_characters.txt") as f:
+        file_content = f.read()
+
+    assert render(file_content) == "\"\'\\\n"
+
+
 #### Test simple
 def test_if():
     file_content = """{% if True %}WEEE{% endif %}"""
