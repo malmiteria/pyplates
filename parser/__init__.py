@@ -24,6 +24,10 @@ class Parser:
     def pattern(self, els):
         return "\{\% (" + els + ")[^\%\}]* \%\}"
 
+    def yield_blocks(self, file_content):
+        # Assumes there's no blocks
+        yield from [match.span() for match in re.finditer("\{\{ .* \}\}", file_content)]
+
     def root_blocks(self, file_content):
         statement_by_start_index = []
         for occ in self.openners_matches(file_content):
@@ -72,6 +76,23 @@ class Parser:
         file_content = file_content.replace("'", "\\'")
         yield "    " * tab_level + f"yield \"{file_content}\"" + "\n"
 
+    def python_inside_blocks(self, file_content, tab_level):
+        start = 0
+        for block_start, block_stop in self.yield_blocks(file_content):
+            # yields before each blocks
+            if file_content[start:block_start]:
+                yield from self.python_out_of_blocks(file_content[start:block_start], tab_level)
+            # yields blocks
+            yield "    " * tab_level + "yield str(" + self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ")"
+            start = block_stop
+        # yields after last block (or everything, if there was no blocks), if empty
+        if file_content == "":
+            yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
+        # yields after last block, if non empty
+        if file_content[start:]:
+            yield from self.python_out_of_blocks(file_content[start:], tab_level)
+
+
     def raw_python(self, file_content, tab_level):
         return "    " * tab_level + file_content
 
@@ -80,7 +101,7 @@ class Parser:
         for block in self.root_blocks(file_content):
             # yields before each blocks
             if file_content[start:block[0][0]]:
-                yield from self.python_out_of_blocks(file_content[start:block[0][0]], tab_level)
+                yield from self.python_inside_blocks(file_content[start:block[0][0]], tab_level)
             # yields blocks
             for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, self.indent(iter(block))):
                 yield self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ":\n"
@@ -91,7 +112,7 @@ class Parser:
             yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
         # yields after last block, if non empty
         if file_content[start:]:
-            yield from self.python_out_of_blocks(file_content[start:], tab_level)
+            yield from self.python_inside_blocks(file_content[start:], tab_level)
 
     def python_code(self, file_content):
         return "def easter_egg():\n" + "".join(self.python_yields(file_content, tab_level=1)) + "\nres = \"\".join(easter_egg())"
