@@ -119,5 +119,6 @@ class Parser:
 
 def render(file_content, *args, **kwargs):
     snek = Parser().python_code(file_content)
+    globals().update(kwargs)
     exec(snek, globals())
     return res
