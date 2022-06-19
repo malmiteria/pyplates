@@ -88,17 +88,17 @@ class TestCaseErrors(unittest.TestCase):
     def test_unmatched_open(self):
         file_content = """{% if False %}"""
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError, expected_regex="^statement if opened but never closed.$") as e:
             render(file_content)
 
     def test_unmatched_closer(self):
         file_content = """{% endif %}"""
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError, expected_regex="^statement if closed but never opened.$") as e:
             render(file_content)
 
     def test_closers_in_mixed_order_should_raise_error(self):
         file_content = """{% for _ in range(5) %}{% if False %}O{% endfor %}{% endif %}"""
 
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, expected_regex="^statement for closed by if closer.$"):
             render(file_content)

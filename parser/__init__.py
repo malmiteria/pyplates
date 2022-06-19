@@ -46,14 +46,22 @@ class Parser:
         block = []
         for statement, match in statement_by_start_index:
             if open_counter is None: # outside any blocks
-                if statement != "OPEN":
-                    continue # found a clause / end block, without corresponding start block
+                if statement == "CLAUSE":
+                    continue # found a clause
+                if statement == "END":
+                    unopened_end = file_content[match.start() + 6:match.end() - 3]
+                    raise ValueError(f"statement {unopened_end} closed but never opened.")
                 block.append(match.span())
                 open_counter = 0 # if facing open statement, we enter block
                 continue
             if open_counter == 0: # inside open block, but not inside any nested block
                 if statement == "END":
                     block.append(match.span())
+                    statement_name = file_content[block[0][0] + 3:block[0][1] - 3].split(' ')[0]
+                    ended_statement_name = file_content[block[-1][0] + 6:block[-1][1] - 3]
+                    if statement_name != ended_statement_name:
+                        raise ValueError(f"statement {statement_name} closed by {ended_statement_name} closer.")
+
                     yield block # sends out full block (with its clauses) and then resets block to prepare next yield
                     open_counter = None
                     block = []
@@ -66,12 +74,9 @@ class Parser:
                 open_counter += 1
             if statement == "END":
                 open_counter -= 1
-
-    def indent(self, block):
-        __, stop = next(block)
-        for iter_start, iter_stop in block:
-           yield stop, iter_start
-           stop = iter_stop
+        if block: # block opened, but never closed
+            unclosed_statement = file_content[block[0][0] + 3:block[0][1] - 3].split(' ')[0]
+            raise ValueError(f"statement {unclosed_statement} opened but never closed.")
 
     def python_out_of_blocks(self, file_content, tab_level):
         file_content = file_content.replace("\\", "\\\\")
@@ -80,7 +85,7 @@ class Parser:
         file_content = file_content.replace("'", "\\'")
         yield "    " * tab_level + f"yield \"{file_content}\"" + "\n"
 
-    def python_inside_blocks(self, file_content, tab_level):
+    def python_without_statement_and_raw(self, file_content, tab_level):
         start = 0
         for block_start, block_stop in self.yield_blocks(file_content):
             # yields before each blocks
@@ -101,7 +106,7 @@ class Parser:
         for block_start, block_stop in self.raw_python_blocks(file_content):
             # yields before each blocks
             if file_content[start:block_start]:
-                yield from self.python_inside_blocks(file_content[start:block_start], tab_level)
+                yield from self.python_without_statement_and_raw(file_content[start:block_start], tab_level)
             # yields blocks
             yield self.raw_python(file_content[block_start + 4:block_stop - 4], tab_level + 1) + "\n"
             start = block_stop
@@ -110,11 +115,17 @@ class Parser:
             yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
         # yields after last block, if non empty
         if file_content[start:]:
-            yield from self.python_inside_blocks(file_content[start:], tab_level)
+            yield from self.python_without_statement_and_raw(file_content[start:], tab_level)
 
 
     def raw_python(self, file_content, tab_level):
         return "    " * tab_level + file_content
+
+    def indent(self, block):
+        __, stop = next(block)
+        for iter_start, iter_stop in block:
+           yield stop, iter_start
+           stop = iter_stop
 
     def full_python_texts_generator(self, file_content, tab_level=0):
         start = 0
