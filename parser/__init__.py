@@ -108,7 +108,7 @@ class Parser:
             if file_content[start:block_start]:
                 yield from self.python_without_statement_and_raw(file_content[start:block_start], tab_level)
             # yields blocks
-            yield self.raw_python(file_content[block_start + 4:block_stop - 4], tab_level + 1) + "\n"
+            yield self.raw_python(file_content[block_start + 4:block_stop - 4], tab_level) + "\n"
             start = block_stop
         # yields after last block (or everything, if there was no blocks), if empty
         if file_content == "":

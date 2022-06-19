@@ -26,7 +26,18 @@ class TestCaseContext(unittest.TestCase):
 
 
 class TestCaseRawPython(unittest.TestCase):
+
     def test_break_in_for(self):
         file_content = """{% for number in range(5) %}{% if number == 3 %}{{{ break }}}{% endif %}{{ number }}{% endfor %}"""
 
         assert render(file_content) == "012"
+
+    def test_raw_python_yields(self):
+        file_content = """{{{ yield str("a") }}}{{{ yield str("b") }}}"""
+
+        assert render(file_content) == "ab"
+
+    def test_set_and_use_value(self):
+        file_content = """{{{ number = 10 }}}{{ number }}"""
+
+        assert render(file_content) == "10"
