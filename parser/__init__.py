@@ -26,7 +26,11 @@ class Parser:
 
     def yield_blocks(self, file_content):
         # Assumes there's no blocks
-        yield from [match.span() for match in re.finditer("\{\{ .* \}\}", file_content)]
+        yield from [match.span() for match in re.finditer("\{\{ [^\}\}]* \}\}", file_content)]
+
+    def raw_python_blocks(self, file_content):
+        # Assumes there's no blocks
+        yield from [match.span() for match in re.finditer("\{\{\{ [^\}\}\}]* \}\}\}", file_content)]
 
     def root_blocks(self, file_content):
         statement_by_start_index = []
@@ -83,7 +87,7 @@ class Parser:
             if file_content[start:block_start]:
                 yield from self.python_out_of_blocks(file_content[start:block_start], tab_level)
             # yields blocks
-            yield "    " * tab_level + "yield str(" + self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ")"
+            yield "    " * tab_level + "yield str(" + self.raw_python(file_content[block_start + 3:block_stop - 3], 0) + ")\n"
             start = block_stop
         # yields after last block (or everything, if there was no blocks), if empty
         if file_content == "":
@@ -92,21 +96,15 @@ class Parser:
         if file_content[start:]:
             yield from self.python_out_of_blocks(file_content[start:], tab_level)
 
-
-    def raw_python(self, file_content, tab_level):
-        return "    " * tab_level + file_content
-
-    def python_yields(self, file_content, tab_level=0):
+    def python_without_statement_blocks(self, file_content, tab_level):
         start = 0
-        for block in self.root_blocks(file_content):
+        for block_start, block_stop in self.raw_python_blocks(file_content):
             # yields before each blocks
-            if file_content[start:block[0][0]]:
-                yield from self.python_inside_blocks(file_content[start:block[0][0]], tab_level)
+            if file_content[start:block_start]:
+                yield from self.python_inside_blocks(file_content[start:block_start], tab_level)
             # yields blocks
-            for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, self.indent(iter(block))):
-                yield self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ":\n"
-                yield from self.python_yields(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
-            start = block[-1][-1]
+            yield self.raw_python(file_content[block_start + 4:block_stop - 4], tab_level + 1) + "\n"
+            start = block_stop
         # yields after last block (or everything, if there was no blocks), if empty
         if file_content == "":
             yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
@@ -114,8 +112,30 @@ class Parser:
         if file_content[start:]:
             yield from self.python_inside_blocks(file_content[start:], tab_level)
 
+
+    def raw_python(self, file_content, tab_level):
+        return "    " * tab_level + file_content
+
+    def full_python_texts_generator(self, file_content, tab_level=0):
+        start = 0
+        for block in self.root_blocks(file_content):
+            # yields before each blocks
+            if file_content[start:block[0][0]]:
+                yield from self.python_without_statement_blocks(file_content[start:block[0][0]], tab_level)
+            # yields blocks
+            for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, self.indent(iter(block))):
+                yield self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ":\n"
+                yield from self.full_python_texts_generator(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
+            start = block[-1][-1]
+        # yields after last block (or everything, if there was no blocks), if empty
+        if file_content == "":
+            yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
+        # yields after last block, if non empty
+        if file_content[start:]:
+            yield from self.python_without_statement_blocks(file_content[start:], tab_level)
+
     def python_code(self, file_content):
-        return "def easter_egg():\n" + "".join(self.python_yields(file_content, tab_level=1)) + "\nres = \"\".join(easter_egg())"
+        return "def easter_egg():\n" + "".join(self.full_python_texts_generator(file_content, tab_level=1)) + "\nres = \"\".join(easter_egg())"
 
 def render(file_content, *args, **kwargs):
     snek = Parser().python_code(file_content)
