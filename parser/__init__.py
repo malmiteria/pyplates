@@ -3,6 +3,8 @@ import re
 
 CONTROL_PATTERN_START = "{%"
 CONTROL_PATTERN_STOP = "%}"
+YIELDED_PATTERN_START = "{{"
+YIELDED_PATTERN_STOP = "}}"
 
 
 class Parser:
@@ -35,12 +37,15 @@ class Parser:
     def remove_control_flow_end_markers(self, file_content):
         return self.remove_surrounding_markers(CONTROL_PATTERN_START, CONTROL_PATTERN_STOP, file_content)[3:] # removes "end"
 
+    def remove_yielded_block_markers(self, file_content):
+        return self.remove_surrounding_markers(YIELDED_PATTERN_START, YIELDED_PATTERN_STOP, file_content)
+
     def pattern(self, els):
         return CONTROL_PATTERN_START + " (" + els + ").*? " + CONTROL_PATTERN_STOP
 
     def yield_blocks(self, file_content):
         # Assumes there's no blocks
-        yield from [match.span() for match in re.finditer("{{ .*? }}", file_content)]
+        yield from [match.span() for match in re.finditer(YIELDED_PATTERN_START + " .*? " + YIELDED_PATTERN_STOP, file_content)]
 
     def raw_python_blocks(self, file_content):
         # Assumes there's no blocks
@@ -109,7 +114,8 @@ class Parser:
             if file_content[start:block_start]:
                 yield from self.python_out_of_blocks(file_content[start:block_start], tab_level)
             # yields blocks
-            yield "    " * tab_level + "yield str(" + self.raw_python(file_content[block_start + 3:block_stop - 3], 0) + ")\n"
+            yielded_block = self.remove_yielded_block_markers(file_content[block_start:block_stop])
+            yield "    " * tab_level + "yield str(" + self.raw_python(yielded_block, 0) + ")\n"
             start = block_stop
         # yields after last block (or everything, if there was no blocks), if empty
         if file_content == "":
