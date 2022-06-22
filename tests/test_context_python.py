@@ -41,3 +41,8 @@ class TestCaseRawPython(unittest.TestCase):
         file_content = """{{{ number = 10 }}}{{ number }}"""
 
         assert render(file_content) == "10"
+
+    def test_set_triple_dict(self):
+        file_content = """{{{ TD = {"k1": {"k2": {"k3": "A"}}} }}}{{ TD["k1"]["k2"]["k3"] }}"""
+
+        assert render(file_content) == "A"

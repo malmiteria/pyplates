@@ -1,6 +1,10 @@
 import re
 
 
+CONTROL_PATTERN_START = "{%"
+CONTROL_PATTERN_STOP = "%}"
+
+
 class Parser:
     def __init__(self):
         self.control_flows = {
@@ -22,16 +26,25 @@ class Parser:
     def clauses_matches(self, file_content):
         return re.finditer(self.pattern(self.clauses), file_content)
 
+    def remove_surrounding_markers(self, pattern_start, pattern_stop, file_content):
+        return file_content[len(pattern_start) + 1:-(len(pattern_stop) + 1)]
+
+    def remove_control_flow_markers(self, file_content):
+        return self.remove_surrounding_markers(CONTROL_PATTERN_START, CONTROL_PATTERN_STOP, file_content)
+
+    def remove_control_flow_end_markers(self, file_content):
+        return self.remove_surrounding_markers(CONTROL_PATTERN_START, CONTROL_PATTERN_STOP, file_content)[3:] # removes "end"
+
     def pattern(self, els):
-        return "\{\% (" + els + ")[^\%\}]* \%\}"
+        return CONTROL_PATTERN_START + " (" + els + ").*? " + CONTROL_PATTERN_STOP
 
     def yield_blocks(self, file_content):
         # Assumes there's no blocks
-        yield from [match.span() for match in re.finditer("\{\{ [^\}\}]* \}\}", file_content)]
+        yield from [match.span() for match in re.finditer("{{ .*? }}", file_content)]
 
     def raw_python_blocks(self, file_content):
         # Assumes there's no blocks
-        yield from [match.span() for match in re.finditer("\{\{\{ [^\}\}\}]* \}\}\}", file_content)]
+        yield from [match.span() for match in re.finditer("{{{ .*? }}}", file_content)]
 
     def control_blocks(self, file_content):
         statement_by_start_index = []
@@ -50,7 +63,7 @@ class Parser:
                 if statement == "CLAUSE":
                     continue # found a clause
                 if statement == "END":
-                    unopened_end = file_content[match.start() + 6:match.end() - 3]
+                    unopened_end = self.remove_control_flow_end_markers(file_content[match.start():])
                     raise ValueError(f"statement {unopened_end} closed but never opened.")
                 block.append(match.span())
                 open_counter = 0 # if facing open statement, we enter block
@@ -58,8 +71,10 @@ class Parser:
             if open_counter == 0: # inside open block, but not inside any nested block
                 if statement == "END":
                     block.append(match.span())
-                    statement_name = file_content[block[0][0] + 3:block[0][1] - 3].split(' ')[0]
-                    ended_statement_name = file_content[block[-1][0] + 6:block[-1][1] - 3]
+                    control_flow_oppenner = file_content[block[0][0]:block[0][1]]
+                    statement_name = self.remove_control_flow_markers(control_flow_oppenner).split(' ')[0]
+                    control_flow_ender = file_content[block[-1][0]:block[-1][1]]
+                    ended_statement_name = self.remove_control_flow_end_markers(control_flow_ender)
                     if statement_name != ended_statement_name:
                         raise ValueError(f"statement {statement_name} closed by {ended_statement_name} closer.")
 
@@ -76,7 +91,8 @@ class Parser:
             if statement == "END":
                 open_counter -= 1
         if block: # block opened, but never closed
-            unclosed_statement = file_content[block[0][0] + 3:block[0][1] - 3].split(' ')[0]
+            control_flow_oppenner = file_content[block[0][0]:block[0][1]]
+            unclosed_statement = self.remove_control_flow_markers(control_flow_oppenner).split(' ')[0]
             raise ValueError(f"statement {unclosed_statement} opened but never closed.")
 
     def python_out_of_blocks(self, file_content, tab_level):
@@ -136,7 +152,8 @@ class Parser:
                 yield from self.python_without_statement_blocks(file_content[start:block[0][0]], tab_level)
             # yields blocks
             for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, self.indent(iter(block))):
-                yield self.raw_python(file_content[block_start + 3:block_stop - 3], tab_level) + ":\n"
+                control_flow = self.remove_control_flow_markers(file_content[block_start:block_stop])
+                yield self.raw_python(control_flow, tab_level) + ":\n"
                 yield from self.full_python_texts_generator(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
             start = block[-1][-1]
         # yields after last block (or everything, if there was no blocks), if empty
