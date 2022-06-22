@@ -5,6 +5,8 @@ CONTROL_PATTERN_START = "{%"
 CONTROL_PATTERN_STOP = "%}"
 YIELDED_PATTERN_START = "{{"
 YIELDED_PATTERN_STOP = "}}"
+RAW_PATTERN_START = "{{{"
+RAW_PATTERN_STOP = "}}}"
 
 
 class Parser:
@@ -29,7 +31,7 @@ class Parser:
         return re.finditer(self.pattern(self.clauses), file_content)
 
     def remove_surrounding_markers(self, pattern_start, pattern_stop, file_content):
-        return file_content[len(pattern_start) + 1:-(len(pattern_stop) + 1)]
+        return file_content[len(pattern_start) + 1:-(len(pattern_stop) + 1)] # +1 for space (no, not you elon)
 
     def remove_control_flow_markers(self, file_content):
         return self.remove_surrounding_markers(CONTROL_PATTERN_START, CONTROL_PATTERN_STOP, file_content)
@@ -40,6 +42,9 @@ class Parser:
     def remove_yielded_block_markers(self, file_content):
         return self.remove_surrounding_markers(YIELDED_PATTERN_START, YIELDED_PATTERN_STOP, file_content)
 
+    def remove_raw_block_markers(self, file_content):
+        return self.remove_surrounding_markers(RAW_PATTERN_START, RAW_PATTERN_STOP, file_content)
+
     def pattern(self, els):
         return CONTROL_PATTERN_START + " (" + els + ").*? " + CONTROL_PATTERN_STOP
 
@@ -49,7 +54,7 @@ class Parser:
 
     def raw_python_blocks(self, file_content):
         # Assumes there's no blocks
-        yield from [match.span() for match in re.finditer("{{{ .*? }}}", file_content)]
+        yield from [match.span() for match in re.finditer(RAW_PATTERN_START + " .*? " + RAW_PATTERN_STOP, file_content)]
 
     def control_blocks(self, file_content):
         statement_by_start_index = []
@@ -131,7 +136,8 @@ class Parser:
             if file_content[start:block_start]:
                 yield from self.python_without_statement_and_raw(file_content[start:block_start], tab_level)
             # yields blocks
-            yield self.raw_python(file_content[block_start + 4:block_stop - 4], tab_level) + "\n"
+            raw_block = self.remove_raw_block_markers(file_content[block_start:block_stop])
+            yield self.raw_python(raw_block, tab_level) + "\n"
             start = block_stop
         # yields after last block (or everything, if there was no blocks), if empty
         if file_content == "":
