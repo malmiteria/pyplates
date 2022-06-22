@@ -147,16 +147,16 @@ class Parser:
     def full_python_texts_generator(self, file_content, tab_level=0):
         start = 0
         for block in self.control_blocks(file_content):
-            # yields before each blocks
+            # yields before each control flow blocks
             if file_content[start:block[0][0]]:
                 yield from self.python_without_statement_blocks(file_content[start:block[0][0]], tab_level)
-            # yields blocks
+            # yields blocks itself, and the actual control flow statement
             for ((block_start, block_stop), (indent_start, indent_stop)) in zip(block, self.indent(iter(block))):
                 control_flow = self.remove_control_flow_markers(file_content[block_start:block_stop])
                 yield self.raw_python(control_flow, tab_level) + ":\n"
                 yield from self.full_python_texts_generator(file_content[indent_start:indent_stop], tab_level=tab_level + 1)
             start = block[-1][-1]
-        # yields after last block (or everything, if there was no blocks), if empty
+        # yields after last block (or everything, if there was no blocks), if file_content is empty
         if file_content == "":
             yield "    " * tab_level + "yield \"\"" # not pass, because if there's only pass, it's not a generator anymore
         # yields after last block, if non empty
