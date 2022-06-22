@@ -3,15 +3,15 @@ import re
 
 class Parser:
     def __init__(self):
-        self.code_blocks = {
+        self.control_flows = {
             "if": ["elif", "else"],
             "for": ["else"],
             "try": ["except", "else", "finally"],
             "with": [],
         }
-        self.openners = "|".join(self.code_blocks.keys())
-        self.closers = "|".join(["end" + key for key in self.code_blocks.keys()])
-        self.clauses = "|".join(["|".join(value) for value in self.code_blocks.values() if value])
+        self.openners = "|".join(self.control_flows.keys())
+        self.closers = "|".join(["end" + key for key in self.control_flows.keys()])
+        self.clauses = "|".join(["|".join(value) for value in self.control_flows.values() if value])
 
     def openners_matches(self, file_content):
         return re.finditer(self.pattern(self.openners), file_content)
@@ -33,7 +33,7 @@ class Parser:
         # Assumes there's no blocks
         yield from [match.span() for match in re.finditer("\{\{\{ [^\}\}\}]* \}\}\}", file_content)]
 
-    def root_blocks(self, file_content):
+    def control_blocks(self, file_content):
         statement_by_start_index = []
         for occ in self.openners_matches(file_content):
             statement_by_start_index.append(("OPEN", occ))
@@ -130,7 +130,7 @@ class Parser:
 
     def full_python_texts_generator(self, file_content, tab_level=0):
         start = 0
-        for block in self.root_blocks(file_content):
+        for block in self.control_blocks(file_content):
             # yields before each blocks
             if file_content[start:block[0][0]]:
                 yield from self.python_without_statement_blocks(file_content[start:block[0][0]], tab_level)
