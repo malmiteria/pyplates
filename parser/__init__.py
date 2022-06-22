@@ -7,10 +7,11 @@ class Parser:
             "if": ["elif", "else"],
             "for": ["else"],
             "try": ["except", "else", "finally"],
+            "with": [],
         }
         self.openners = "|".join(self.code_blocks.keys())
         self.closers = "|".join(["end" + key for key in self.code_blocks.keys()])
-        self.clauses = "|".join(["|".join(value) for value in self.code_blocks.values()])
+        self.clauses = "|".join(["|".join(value) for value in self.code_blocks.values() if value])
 
     def openners_matches(self, file_content):
         return re.finditer(self.pattern(self.openners), file_content)
