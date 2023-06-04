@@ -1,5 +1,4 @@
 import re
-x
 
 
 CONTROL_PATTERN_START = "{%"
